@@ -8,6 +8,8 @@ Streamlit. This file only wires that logic to widgets; it should stay
 
 from __future__ import annotations
 
+import os
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -17,6 +19,7 @@ from stock_screener.indicators import (
     relative_strength_index,
     simple_moving_average,
 )
+from stock_screener.llm_chat import ask_llm, make_client
 from stock_screener.query_parser import answer_query
 from stock_screener.screener import (
     MovingAverageFilter,
@@ -146,23 +149,55 @@ else:
     st.info("Enter your tickers on the left, set your filters, and click **Run Screener**.")
 
 #chatbot
+def get_gemini_key() -> str | None:
+    """Read the key from Streamlit secrets (deployment) or an env var (local)."""
+    try:
+        return st.secrets["GEMINI_API_KEY"]
+    except Exception:
+        return os.environ.get("GEMINI_API_KEY")
+
+
+@st.cache_resource
+def get_llm_client(api_key: str | None):
+    return make_client(api_key)
+
+
+def rule_based_answer(query: str, price_data: dict[str, pd.DataFrame]) -> None:
+    """Fallback: the original keyword parser, used when Gemini isn't available."""
+    result = answer_query(query, price_data)
+    if result is None:
+        st.warning(
+            "I didn't recognise that phrasing. Try: 'which stocks increased "
+            "yesterday', 'which are oversold', 'which had a volume spike', "
+            "'which are overbought'."
+        )
+    elif not result:
+        st.info("No stocks matched that question.")
+    else:
+        st.success(", ".join(result))
+
+
 st.divider()
 st.subheader("💬 Ask about your stocks")
-query = st.text_input("Ask a question", placeholder="e.g. Which stocks increased yesterday?")
+llm_client = get_llm_client(get_gemini_key())
+st.caption(
+    "Powered by Gemini — answers are grounded in the indicators computed above."
+    if llm_client
+    else "Gemini API key not set — using the basic keyword matcher."
+)
+query = st.text_input("Ask a question", placeholder="e.g. Which stocks look oversold and had a volume spike?")
 
 if query:
     if not tickers:
         st.warning("Enter some tickers in the sidebar first.")
     else:
         price_data = {t: cached_fetch(t, period) for t in tickers}
-        result = answer_query(query, price_data)
-        if result is None:
-            st.warning(
-                "I didn't recognise that phrasing. Try: 'which stocks increased "
-                "yesterday', 'which are oversold', 'which had a volume spike', "
-                "'which are overbought'."
-            )
-        elif not result:
-            st.info("No stocks matched that question.")
+        if llm_client is None:
+            rule_based_answer(query, price_data)
         else:
-            st.success(", ".join(result))
+            try:
+                with st.spinner("Thinking..."):
+                    st.markdown(ask_llm(query, price_data, llm_client))
+            except Exception as e:  # bad key, rate limit, network error
+                st.warning(f"Gemini request failed ({type(e).__name__}); falling back to keyword matcher.")
+                rule_based_answer(query, price_data)
