@@ -6,14 +6,22 @@ has no dependency on Streamlit, so it can be unit tested and reused (e.g.
 in a CLI or notebook) without spinning up a UI.
 """
 
+# this file wraps yfinance so the rest of the app doesn't have to deal with yfinance's quirks.
+# it doesn't use streamlit, so it can be tested and reused.
+
 from __future__ import annotations
 
-import pandas as pd
+import pandas as pd # for the dataframe (table) type - each stocks price history is one dataframe.
 import yfinance as yf
+# yfinance also gives data in dataframe
+# dataframe is a pandas' table structure 
+# each row of the stocks price history is identified by which day its for, not a number
 
 
 def fetch_price_history(ticker: str, period: str = "6mo") -> pd.DataFrame:
-    """Download OHLCV price history for a single ticker.
+    """Download OHLCV price history for a single ticker. 
+    OHLCV - open, high, low, close, volume
+    volume - how many shares were traded.
 
     Args:
         ticker: Stock ticker symbol, e.g. "AAPL".
@@ -27,7 +35,9 @@ def fetch_price_history(ticker: str, period: str = "6mo") -> pd.DataFrame:
     df = yf.download(ticker, period=period, progress=False, auto_adjust=True)
     if df is None or df.empty:
         return pd.DataFrame()
+# if the ticker doesn't exist or if yahoo returns nothing, this returns an empty table instead of crashing
 
+    
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
 
