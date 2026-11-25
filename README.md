@@ -145,9 +145,8 @@ The tests use small synthetic datasets and a **fake Gemini client**, so they run
 
 - The chatbot answers each question independently, with no conversation memory yet (could use `st.chat_message` and `st.session_state`).
 - Selecting a different ticker in the chart inspector reruns the app and clears results; storing results in `st.session_state` would fix this.
-- Uses the simple-average (Cutler) variant of RSI rather than Wilder's smoothed version.
 - Large ticker lists would make the prompt big, so it would need filtering or retrieval before sending to the LLM.
-- Possible additions: Gemini function calling so the chatbot can run screener filters itself, more indicators (MACD, Bollinger Bands), and fundamentals data.
+- Possible additions: Gemini function calling so the chatbot can run screener filters itself, adding more indicators
 
 ---
 
