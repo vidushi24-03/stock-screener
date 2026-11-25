@@ -5,6 +5,8 @@ one, with no I/O and no framework dependency. That's what makes them easy
 to unit test in isolation, rather than only being verifiable by eyeballing
 a chart.
 """
+# pure here means the same input will always give the same output
+
 
 from __future__ import annotations
 
@@ -18,6 +20,7 @@ def simple_moving_average(series: pd.Series, window: int) -> pd.Series:
     history yet to compute a full window.
     """
     return series.rolling(window=window).mean()
+# the average closing price over the last n days recalculated every day. 
 
 
 def relative_strength_index(series: pd.Series, window: int = 14) -> pd.Series:
@@ -37,7 +40,10 @@ def relative_strength_index(series: pd.Series, window: int = 14) -> pd.Series:
     avg_loss = loss.rolling(window=window).mean()
 
     rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
+    return 100 - (100 / (1 + rs)) # the standard RSI formula
+# a score from 0 to 100 measuring how strongly a stock has been rising vs falling recently.
+# below 30: oversold - fallen a lot, might bounce back
+# abovw 70: overbought - risen a lot, might pull back
 
 
 def volume_ratio(volume: pd.Series, window: int = 20) -> pd.Series:
@@ -48,3 +54,6 @@ def volume_ratio(volume: pd.Series, window: int = 20) -> pd.Series:
     """
     avg = volume.rolling(window=window).mean()
     return volume / avg
+
+# today's trading volume compared with the usual (20-day average) volume
+# big volume often means something is happening, like news, earnings or big investors buying or selling. A price move on high volume is usually seen as more meaningful than one on low volume. The screener flags ratios of 1.5 or more by default.
